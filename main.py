@@ -126,7 +126,7 @@ class Parser(Analyzer):
         soup = BeautifulSoup(html_doc)
         self.page = 1
         # papelist if a typo written by csdn front-end programmers?
-        pattern = re.compile(r"var pageSize = (.*?);$", re.MULTILINE | re.DOTALL)
+        pattern = re.compile(r"var listTotal = (.*?);$", re.MULTILINE | re.DOTALL)
         script = soup.find('script', text=pattern)
         # if there is only a little posts in one blog, the papelist element doesn't even exist
         if script == None:
@@ -134,8 +134,8 @@ class Parser(Analyzer):
         	return 1
         # get the page from text
         strpage = pattern.search(script.text).group(1).strip(' ')
-        # cast str to int
-        self.page = int(strpage)
+        # compute pageNum by listTotal (20 per page)
+        self.page = (int(strpage) + 19) / 20
         return self.page
 
     # get all the link
