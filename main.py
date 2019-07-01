@@ -59,7 +59,7 @@ class Analyzer(object):
 
     # get the detail of the article
     def getContent(self, soup):
-        return soup.find(id='container').find(id='body').find(id='main').find(class_='main')
+        return soup.find(id='mainBox').find('main')
         
 
 class Exporter(Analyzer):
@@ -68,36 +68,41 @@ class Exporter(Analyzer):
         super(Exporter, self).__init__()
 
     # get the title of the article
-    def getTitle(self, detail):
-        return detail.find(class_='article_title').h1
+    def getTitleBox(self, detail):
+        return detail.find(class_='article-header-box')
+
+    def getTitleOnly(self, detail):
+        return detail.find(class_='article-header-box').h1
 
     # get the content of the article
     def getArticleContent(self, detail):
-        return detail.find(class_='article_content')
+        return detail.find('article')
 
     # export as markdown
     def export2markdown(self, f, detail):
-        f.write(html2text.html2text(self.getTitle(detail).prettify()))
+        f.write(html2text.html2text(self.getTitleOnly(detail).prettify()))
         f.write(html2text.html2text(self.getArticleContent(detail).prettify()))
 
     # export as html
     def export2html(self, f, detail):
-        f.write(self.getTitle(detail).prettify())
+        f.write(self.getTitleBox(detail).prettify())
         f.write(self.getArticleContent(detail).prettify())
 
     # export
     def export(self, link, filename, form):
         html_doc = self.get(link)
         soup = BeautifulSoup(html_doc)
-        detail = self.getContent(soup).find(id='article_details')
+        # detail = self.getContent(soup).find(class_='blog-content-box')
         if form == 'markdown':
             f = codecs.open(filename + '.md', 'w', encoding='utf-8')
-            self.export2markdown(f, detail)
+            # self.export2markdown(f, detail)
+            self.export2markdown(f, soup)
             f.close()
             return
         elif form == 'html':
             f = codecs.open(filename + '.html', 'w', encoding='utf-8')
-            self.export2html(f, detail)
+            # self.export2html(f, detail)
+            self.export2html(f, soup)
             f.close()
             return
 
@@ -111,14 +116,17 @@ class Parser(Analyzer):
         super(Parser, self).__init__()
         self.article_list = []
         self.page = -1
+        self.username = ""
 
     # get the articles' link
     def parse(self, html_doc):
         soup = BeautifulSoup(html_doc)
-        res = self.getContent(soup).find(class_='list_item_new').find(id='article_list').find_all(class_='article_item')
+        res = self.getContent(soup).find(class_='article-list').find_all(class_='article-item-box')
         i = 0
         for ele in res:
-            self.article_list.append('http://blog.csdn.net/' + ele.find(class_='article_title').h1.span.a['href'])
+            article_href = ele.find(class_='content').find('a', href=True)['href']
+            if (article_href.strip().split('/')[3] != self.username): continue # expect other user's article, like ADS
+            self.article_list.append(article_href)
 
     # get the page of the blog
     # may have a bug, because of the encoding
@@ -138,6 +146,19 @@ class Parser(Analyzer):
         self.page = (int(strpage) + 19) / 20
         return self.page
 
+    def getRealUserName(self, html_doc):
+        soup = BeautifulSoup(html_doc)
+        # papelist if a typo written by csdn front-end programmers?
+        pattern = re.compile(r'var username = "(.*?)";$', re.MULTILINE | re.DOTALL)
+        script = soup.find('script', text=pattern)
+        # if there is only a little posts in one blog, the papelist element doesn't even exist
+        if script == None:
+        	print "Not Found username"
+        	return None
+        # get the username from text
+        self.username = pattern.search(script.text).group(1).strip(' ')
+        return self.username
+
     # get all the link
     def getAllArticleLink(self, url):
     	# get the num of the page
@@ -154,12 +175,13 @@ class Parser(Analyzer):
         for link in self.article_list:
             PrintLayer.printWorkingArticle(link)
             exporter = Exporter()
-            exporter.run(link, link.split('/')[7], form)
+            exporter.run(link, link.split('/')[-1], form)
 
     # the page given
     def run(self, url, page=-1, form='markdown'):
         self.page = -1
         self.article_list = []
+        self.getRealUserName(self.get(url))
         PrintLayer.printWorkingPhase('getting-link')
         if page == -1:
             self.getAllArticleLink(url)
@@ -192,7 +214,7 @@ def main(argv):
         elif opt == '-u':
             username = arg
         elif opt == '-p':
-            page = arg
+            page = int(arg)
         elif opt == '-o':
             directory = arg
         elif opt == '-f':
@@ -204,6 +226,7 @@ def main(argv):
     if form != 'markdown' and form != 'html':
         print 'Err: format err'
         sys.exit(2)
+
     url = 'http://blog.csdn.net/' + username
     parser = Parser()
     parser.run(url, page, form)
