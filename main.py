@@ -17,6 +17,10 @@ class PrintLayer(object):
         self.arg = arg
 
     @staticmethod
+    def printTotalPageNum(page):
+        print "Total Page Number: " + str(page)
+
+    @staticmethod
     def printWorkingPage(page):
         print "Work in Page " + str(page)
 
@@ -49,6 +53,7 @@ class Analyzer(object):
     def get(self, url):
         headers = {'User-Agent': 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.118 Safari/537.36'}
         req = urllib2.Request(url, headers=headers)
+        print(url);
         html_doc = urllib2.urlopen(req).read()
         return html_doc
 
@@ -121,26 +126,23 @@ class Parser(Analyzer):
         soup = BeautifulSoup(html_doc)
         self.page = 1
         # papelist if a typo written by csdn front-end programmers?
-        pageList = self.getContent(soup).find(id='papelist')
+        pattern = re.compile(r"var pageSize = (.*?);$", re.MULTILINE | re.DOTALL)
+        script = soup.find('script', text=pattern)
         # if there is only a little posts in one blog, the papelist element doesn't even exist
-        if pageList == None:
+        if script == None:
         	print "Page is 1"
         	return 1
-        res = pageList.span
         # get the page from text
-        buf = str(res).split(' ')[3]
-        strpage = ''
-        for i in buf:
-            if i >= '0' and i <= '9':
-                strpage += i
+        strpage = pattern.search(script.text).group(1).strip(' ')
         # cast str to int
-        self.page =  int(strpage)
+        self.page = int(strpage)
         return self.page
 
     # get all the link
     def getAllArticleLink(self, url):
     	# get the num of the page
         self.getPageNum(self.get(url))
+        PrintLayer.printTotalPageNum(self.page)
         # iterate all the pages
         for i in range(1, self.page + 1):
             PrintLayer.printWorkingPage(i)
