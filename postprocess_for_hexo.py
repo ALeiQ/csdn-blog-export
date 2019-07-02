@@ -7,15 +7,13 @@ import re
 from bs4 import BeautifulSoup
 #解决中文编码问题
 import codecs
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
-mdPath = './test_md/'
-htmlPath = './test_html/'
-outPath = './test_out/'
-"""
 mdPath = './md/'
 htmlPath = './html/'
 outPath = './hexo_md/'
-"""
 mdPosts = os.listdir(mdPath)
 
 for postName in mdPosts:
@@ -29,11 +27,17 @@ for postName in mdPosts:
         soup = BeautifulSoup(html)
         tag = soup.find_all('span', class_='time')
         timeStamp = tag[0].string.strip()
+        timeStamp = timeStamp.replace(u'年', '-').replace(u'月', '-').replace(u'日', '')
         print timeStamp
 
         #从HTML中获取博客标题，用于重命名.md文件
         title = soup.h1
+        #对于hexo日志为yml格式，标题首位不能为引号
         newFileName = title.string.strip()
+        if (newFileName[0] == '"'):
+            newFileName = newFileName.replace('"', '『', 1).replace('"', '』', 1)
+        elif (newFileName[0] == "'"):
+            newFileName = newFileName.replace("'", '『', 1).replace("'", '』', 1)
         print newFileName
 
         #弃用！
@@ -48,11 +52,15 @@ for postName in mdPosts:
 
         #从HTML中获取博客tags
         tags = []
-        tagsTag = soup.find('span', class_='artic-tag-box')
-        if tagsTag:
-            for tag in tagsTag.find_all('a'):
-                tags.append(tag['data-track-click'].split('"')[-2])
-        tags = ', '.join(tags)
+        tagList = soup.find(class_='tags-box')
+        label_a = re.compile(r'<a.*?', re.DOTALL);
+        if tagList:
+            for tagStr in tagList:
+                tagStr = str(tagStr).split("\n")
+                for index in range(len(tagStr)):
+                    if label_a.match(tagStr[index].strip()):
+                        index += 1
+                        tags.append(tagStr[index].strip())
         print(tags)
 
         #将.md中博文读入contents，往contents插入Hexo头部
@@ -62,9 +70,12 @@ for postName in mdPosts:
         mdFile.close()
         contents.insert(0, "---\n")
         contents.insert(0, u"category: ACM\n")
-        contents.insert(0, "tags: %s\n" %tags)
+        for tag_id in range(len(tags)):
+            contents.insert(tag_id, "  - %s\n" %tags[tag_id])
+        contents.insert(0, "tags: \n")
         contents.insert(0, "date: " + timeStamp + "\n")
         contents.insert(0, "title: " + newFileName + "\n")
+        contents.insert(0, "---\n")
 
         mdFile = codecs.open(outPath + postName, "w", 'utf-8')
         newContents = "".join(contents)

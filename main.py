@@ -80,7 +80,8 @@ class Exporter(Analyzer):
 
     # export as markdown
     def export2markdown(self, f, detail):
-        f.write(html2text.html2text(self.getTitleOnly(detail).prettify()))
+        # if you need, open this line to get article_title for .md
+        # f.write(html2text.html2text(self.getTitleOnly(detail).prettify()))
         f.write(html2text.html2text(self.getArticleContent(detail).prettify()))
 
     # export as html
