@@ -21,6 +21,7 @@
 ### 拓展：for hexo
 
 以下为hexo日志用户提供
+
 使用main.py抓取html、md文件之后，通过postprocess_for_hexo.py可转换成hexo日志格式的md文件
 
     python postprocess_for_hexo.py
